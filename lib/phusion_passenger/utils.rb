@@ -217,7 +217,20 @@ protected
 			end
 			raise(message)
 		end
-		
+
+    dot_env_path = File.expand_path(".env", options["app_root"])
+    if File.exists?(dot_env_path)
+      begin
+        File.read(dot_env_path).each_line do |line|
+          line.strip!
+          key, value = line.split("=", 2)
+          ENV[key] = value
+        end
+      rescue => e
+        STDERR.puts "Error loading environment variables from '#{dot_env_path}': #{e.message}"
+      end
+    end
+
 		ENV["RAILS_ENV"] = ENV["RACK_ENV"] = options["environment"]
 		
 		base_uri = options["base_uri"]

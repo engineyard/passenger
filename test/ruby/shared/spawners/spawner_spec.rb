@@ -43,7 +43,37 @@ shared_examples_for "a spawner" do
 		File.read("#{app.app_root}/rails_env.txt").should == "staging"
 		File.read("#{app.app_root}/rack_env.txt").should == "staging"
 	end
-	
+
+  it "sets appropriate environment variables if a .env file exists" do
+		before_start %q{
+			File.write("var1.txt", ENV['VERY_IMPORTANT_VAR']) if ENV['VERY_IMPORTANT_VAR']
+			File.write("var2.txt", ENV['SUPERFLUESNESS'])     if ENV['SUPERFLUESNESS']
+		}
+		app = spawn_some_application("environment" => "production") do |stub|
+      File.open(File.join(stub.full_app_root, ".env"), "w+") do |fp|
+        fp.write("VERY_IMPORTANT_VAR=foo\nSUPERFLUESNESS=bar")
+      end
+	  end
+	  File.read("#{app.app_root}/var1.txt").should == "foo"
+		File.read("#{app.app_root}/var2.txt").should == "bar"
+  end
+
+  it "fails to set malformed .env entries" do
+		before_start %q{
+			File.write("var1.txt", ENV['VERY_IMPORTANT_VAR'])
+			File.write("var2.txt", ENV['SUPERFLUESNESS'])
+			File.write("var3.txt", ENV['ALSO'])
+		}
+		app = spawn_some_application("environment" => "production") do |stub|
+      File.open(File.join(stub.full_app_root, ".env"), "w+") do |fp|
+        fp.write("VERY_IMPORTANT_VAR is foo\nSUPERFLUESNESS=bar\nALSO=i=love=equals")
+      end
+	  end
+	  File.read("#{app.app_root}/var1.txt").should == ""
+		File.read("#{app.app_root}/var2.txt").should == "bar"
+		File.read("#{app.app_root}/var3.txt").should == "i=love=equals"
+  end
+
 	it "sets ENV['RAILS_RELATIVE_URL_ROOT'] and ENV['RACK_BASE_URI'] if the 'base_uri' option is set to a valid value" do
 		before_start %q{
 			File.write("rails_relative_url_root.txt", ENV['RAILS_RELATIVE_URL_ROOT'])
